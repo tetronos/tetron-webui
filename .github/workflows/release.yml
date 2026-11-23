@@ -34,6 +34,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Untagged tetronos git dependency or a tetron-proto tag of another minor: no release.
+      - name: Suite dependency guard
+        run: sh contrib/check-suite-deps.sh
+
       - name: Extract version
         id: extract_version
         run: |
