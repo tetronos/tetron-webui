@@ -18,7 +18,7 @@ path = "src/main.rs"
 # tag; a tetron release opens that bump as a pull request (bump-proto.yml);
 # contrib/check-suite-deps.sh guards it. The wire types still use
 # #[serde(default)], so binaries of the same minor keep working together.
-tetron-proto = { git = "https://github.com/tetronos/tetron", tag = "v0.15.5" }
+tetron-proto = { git = "https://github.com/tetronos/tetron", tag = "v0.15.6" }
 # `install`/`uninstall` subcommands for the per-user service. Same crates/
 # versions tetron's own CLI uses.
 clap = { version = "4", features = ["derive", "env"] }
