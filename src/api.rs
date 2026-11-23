@@ -90,6 +90,9 @@ pub async fn get_status() -> Json<serde_json::Value> {
         drops,
         fragmented_ipv4,
         fragmented_ipv6,
+        // Fields a newer tetron-proto adds (such as protocol_epoch) must not
+        // break this build at a bump.
+        ..
     } = resp
     else {
         // Status should never come back as anything but StatusResponse or
