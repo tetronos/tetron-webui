@@ -12,12 +12,13 @@ name = "tetron-webui"
 path = "src/main.rs"
 
 [dependencies]
-# Floating on tetron's main branch, not a pinned tag: the actual runtime
-# compatibility risk is which *binaries* are running together, not what was
-# pinned at build time -- tetron-proto's wire types already use
-# #[serde(default)] consistently for exactly this reason. Pinning a tag would
-# only add tag-bump busywork with no real safety benefit.
-tetron-proto = { git = "https://github.com/tetronos/tetron" }
+# Pinned to a tetron core release tag of this minor, not floating on main: a
+# bare git dependency lets Cargo.lock freeze any commit, so suite clients
+# drifted to different protocol revisions. contrib/bump-proto.sh moves the
+# tag; a tetron release opens that bump as a pull request (bump-proto.yml);
+# contrib/check-suite-deps.sh guards it. The wire types still use
+# #[serde(default)], so binaries of the same minor keep working together.
+tetron-proto = { git = "https://github.com/tetronos/tetron", tag = "v0.15.5" }
 # `install`/`uninstall` subcommands for the per-user service. Same crates/
 # versions tetron's own CLI uses.
 clap = { version = "4", features = ["derive", "env"] }
