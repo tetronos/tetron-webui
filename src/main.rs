@@ -14,9 +14,9 @@ mod messageboard;
 mod service;
 mod sync_receiver;
 
-use axum::routing::{delete, get, post};
-use axum::response::IntoResponse;
 use axum::Router;
+use axum::response::IntoResponse;
+use axum::routing::{delete, get, post};
 use clap::{Parser, Subcommand};
 
 /// Default port the web server listens on. Override via `TETRON_WEBUI_PORT`
@@ -28,7 +28,8 @@ pub(crate) const DEFAULT_PORT: u16 = 7870;
 /// by `build.rs` (e.g. `0.8.4 (a1b2c3d4)`). The SHA distinguishes two builds
 /// that share the same, unbumped crate version -- same pattern as tetron
 /// core's own `FULL_VERSION`.
-pub(crate) const FULL_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " (", env!("GIT_SHA"), ")");
+pub(crate) const FULL_VERSION: &str =
+    concat!(env!("CARGO_PKG_VERSION"), " (", env!("GIT_SHA"), ")");
 
 /// Resolve the web server's listen port. Reads `TETRON_WEBUI_PORT` from the
 /// environment; falls back to `DEFAULT_PORT` if unset or unparsable.
@@ -118,15 +119,24 @@ async fn serve_js() -> impl axum::response::IntoResponse {
 }
 
 async fn serve_qrcode_js() -> impl axum::response::IntoResponse {
-    ([(axum::http::header::CONTENT_TYPE, "application/javascript")], QRCODE_JS)
+    (
+        [(axum::http::header::CONTENT_TYPE, "application/javascript")],
+        QRCODE_JS,
+    )
 }
 
 async fn serve_favicon() -> impl axum::response::IntoResponse {
-    ([(axum::http::header::CONTENT_TYPE, "image/svg+xml")], FAVICON_SVG)
+    (
+        [(axum::http::header::CONTENT_TYPE, "image/svg+xml")],
+        FAVICON_SVG,
+    )
 }
 
 async fn serve_idiomorph_js() -> impl axum::response::IntoResponse {
-    ([(axum::http::header::CONTENT_TYPE, "application/javascript")], IDIOMORPH_JS)
+    (
+        [(axum::http::header::CONTENT_TYPE, "application/javascript")],
+        IDIOMORPH_JS,
+    )
 }
 
 // --- Config-Backup script proxy -------------------------------------------------
@@ -236,7 +246,10 @@ async fn main() -> anyhow::Result<()> {
             "/api/networks/{name}/invites",
             get(api::invite_list).post(api::invite_create),
         )
-        .route("/api/networks/{name}/invites/{invite_id}", delete(api::invite_revoke))
+        .route(
+            "/api/networks/{name}/invites/{invite_id}",
+            delete(api::invite_revoke),
+        )
         // Phase 3: full admin surface
         .route("/api/networks/{net_id}/kick", post(api::kick_member))
         .route(
@@ -259,21 +272,36 @@ async fn main() -> anyhow::Result<()> {
             "/api/sync-receiver/modules",
             get(api::sync_receiver_modules_list).post(api::sync_receiver_module_add),
         )
-        .route("/api/sync-receiver/modules/{name}", delete(api::sync_receiver_module_remove))
+        .route(
+            "/api/sync-receiver/modules/{name}",
+            delete(api::sync_receiver_module_remove),
+        )
         .route("/api/sync-receiver/dir", post(api::sync_receiver_set_dir))
         .route(
             "/api/sync-receiver/allow",
             get(api::sync_receiver_allow_list).post(api::sync_receiver_allow_add),
         )
-        .route("/api/sync-receiver/allow/peer", post(api::sync_receiver_allow_add_peer))
-        .route("/api/sync-receiver/allow/{ip}", delete(api::sync_receiver_allow_remove))
+        .route(
+            "/api/sync-receiver/allow/peer",
+            post(api::sync_receiver_allow_add_peer),
+        )
+        .route(
+            "/api/sync-receiver/allow/{ip}",
+            delete(api::sync_receiver_allow_remove),
+        )
         .route("/api/sync-receiver/enable", post(api::sync_receiver_enable))
-        .route("/api/sync-receiver/disable", post(api::sync_receiver_disable))
+        .route(
+            "/api/sync-receiver/disable",
+            post(api::sync_receiver_disable),
+        )
         .route("/api/sync-receiver/port", post(api::sync_receiver_set_port))
         .route("/api/messageboard/status", get(api::messageboard_status))
         .route("/api/messageboard/start", post(api::messageboard_start))
         .route("/api/messageboard/stop", post(api::messageboard_stop))
-        .route("/api/messageboard/restart-all", post(api::messageboard_restart_all));
+        .route(
+            "/api/messageboard/restart-all",
+            post(api::messageboard_restart_all),
+        );
 
     let port = resolve_port();
     let addr = format!("127.0.0.1:{port}");

@@ -94,7 +94,9 @@ async fn discover() -> BoardsByNetwork {
         let mut members: Vec<(String, String)> = Vec::new();
         members.push((
             net.my_ip.to_string(),
-            net.my_hostname.clone().unwrap_or_else(|| net.my_ip.to_string()),
+            net.my_hostname
+                .clone()
+                .unwrap_or_else(|| net.my_ip.to_string()),
         ));
         for p in &net.peers {
             members.push((
@@ -148,7 +150,10 @@ async fn probe_one(ip: String, port: u16, host: String, network: String) -> Opti
     if v.get("network").and_then(|s| s.as_str()) != Some(network.as_str()) {
         return None;
     }
-    let admin = v.get("installed_by_coordinator").and_then(|b| b.as_bool()).unwrap_or(false);
+    let admin = v
+        .get("installed_by_coordinator")
+        .and_then(|b| b.as_bool())
+        .unwrap_or(false);
     Some(Board {
         host,
         ip: ip.clone(),

@@ -83,7 +83,8 @@ pub fn install(port: u16) -> Result<()> {
         let unit = include_str!("../contrib/tetron-webui.service")
             .replace("/usr/local/bin/tetron-webui", &exe)
             .replace("__TETRON_WEBUI_PORT__", &port_str);
-        std::fs::write(&path, unit).with_context(|| format!("failed to write {}", path.display()))?;
+        std::fs::write(&path, unit)
+            .with_context(|| format!("failed to write {}", path.display()))?;
         run_cmd("systemctl", &["--user", "daemon-reload"]);
         run_cmd("systemctl", &["--user", "enable", "tetron-webui"]);
         // `enable --now` is a no-op restart on an already-active unit, so a
@@ -101,7 +102,8 @@ pub fn install(port: u16) -> Result<()> {
             .replace("/usr/local/bin/tetron-webui", &exe)
             .replace("/tmp/tetron-webui.log", &log)
             .replace("__TETRON_WEBUI_PORT__", &port_str);
-        std::fs::write(&path, plist).with_context(|| format!("failed to write {}", path.display()))?;
+        std::fs::write(&path, plist)
+            .with_context(|| format!("failed to write {}", path.display()))?;
         // Tear down any previously loaded job (e.g. one pointing at a stale
         // binary path) before loading the freshly written plist -- same
         // reasoning as tetron's own install_and_start_service.

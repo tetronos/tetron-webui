@@ -458,18 +458,26 @@ pub async fn install(id: &str) -> anyhow::Result<String> {
 async fn install_script(spec: &AddonSpec) -> anyhow::Result<String> {
     let url = backup_script_url();
     let dest = binary_path(spec)?;
-    let tmpdir = tempfile::Builder::new().prefix("tetron-webui-script-").tempdir()?;
+    let tmpdir = tempfile::Builder::new()
+        .prefix("tetron-webui-script-")
+        .tempdir()?;
     let tmp_path = tmpdir.path().join(spec.binary_name);
-    run_ok(Command::new("curl").args(["-fsSL", "-o"]).arg(&tmp_path).arg(&url))
-        .await
-        .map_err(|e| anyhow::anyhow!("failed to download script from {url}: {e}"))?;
+    run_ok(
+        Command::new("curl")
+            .args(["-fsSL", "-o"])
+            .arg(&tmp_path)
+            .arg(&url),
+    )
+    .await
+    .map_err(|e| anyhow::anyhow!("failed to download script from {url}: {e}"))?;
     let meta = tokio::fs::metadata(&tmp_path).await?;
     anyhow::ensure!(
         meta.len() > 0,
         "downloaded script from {url} is empty -- aborting install"
     );
     tokio::fs::create_dir_all(install_dir(spec)?).await?;
-    tokio::fs::copy(&tmp_path, &dest).await
+    tokio::fs::copy(&tmp_path, &dest)
+        .await
         .map_err(|e| anyhow::anyhow!("failed to install to {}: {e}", dest.display()))?;
     set_executable(&dest).await?;
     Ok(format!(
@@ -507,7 +515,11 @@ pub async fn uninstall(id: &str) -> anyhow::Result<String> {
         let dest = binary_path(spec)?;
         anyhow::ensure!(dest.exists(), "{} is not installed", spec.display_name);
         match tokio::fs::remove_file(&dest).await {
-            Ok(()) => Ok(format!("{} script removed from {}.", spec.display_name, dest.display())),
+            Ok(()) => Ok(format!(
+                "{} script removed from {}.",
+                spec.display_name,
+                dest.display()
+            )),
             Err(e) => Ok(format!(
                 "{} script at {} could not be removed: {e}. Delete it manually if you want a full cleanup.",
                 spec.display_name,

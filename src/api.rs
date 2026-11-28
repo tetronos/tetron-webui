@@ -100,7 +100,9 @@ pub async fn get_status() -> Json<serde_json::Value> {
         // for mutating actions) -- but Status itself has no Error path in
         // practice since it's always allowed. Treat anything unexpected the
         // same as unreachable, rather than panicking on a malformed reply.
-        return Json(serde_json::json!({"reachable": false, "message": "unexpected daemon response"}));
+        return Json(
+            serde_json::json!({"reachable": false, "message": "unexpected daemon response"}),
+        );
     };
 
     // Enrich each network with its short id (first 10 hex chars of the
@@ -110,7 +112,10 @@ pub async fn get_status() -> Json<serde_json::Value> {
     let networks: Vec<serde_json::Value> = networks
         .into_iter()
         .map(|n| {
-            let short_id = n.network_key.as_ref().map(|k| k.chars().take(10).collect::<String>());
+            let short_id = n
+                .network_key
+                .as_ref()
+                .map(|k| k.chars().take(10).collect::<String>());
             serde_json::json!({
                 "network": n.network,
                 "role": format!("{}", n.role),
@@ -199,7 +204,10 @@ pub struct CreateReq {
 /// `conflicts_with = "tor"` constraint (`src/main.rs` in the main tetron
 /// crate) -- there is no clap parser here to enforce it for us, so both set
 /// is rejected explicitly rather than silently picking one.
-fn resolve_transport(tor: bool, veilid: bool) -> Result<Option<tetron_proto::TransportMode>, String> {
+fn resolve_transport(
+    tor: bool,
+    veilid: bool,
+) -> Result<Option<tetron_proto::TransportMode>, String> {
     match (tor, veilid) {
         (true, true) => Err("--tor and --veilid are mutually exclusive".to_string()),
         (true, false) => Ok(Some(tetron_proto::TransportMode::Tor)),
@@ -219,12 +227,18 @@ mod resolve_transport_tests {
 
     #[test]
     fn tor_checked_alone() {
-        assert_eq!(resolve_transport(true, false), Ok(Some(tetron_proto::TransportMode::Tor)));
+        assert_eq!(
+            resolve_transport(true, false),
+            Ok(Some(tetron_proto::TransportMode::Tor))
+        );
     }
 
     #[test]
     fn veilid_checked_alone() {
-        assert_eq!(resolve_transport(false, true), Ok(Some(tetron_proto::TransportMode::Veilid)));
+        assert_eq!(
+            resolve_transport(false, true),
+            Ok(Some(tetron_proto::TransportMode::Veilid))
+        );
     }
 
     #[test]
@@ -272,7 +286,9 @@ pub async fn create_network(Json(req): Json<CreateReq>) -> Response {
         }))
         .into_response(),
         Ok(IpcMessage::Error { message }) => ActionResult::err(message).into_response(),
-        Ok(other) => ActionResult::err(format!("unexpected daemon response: {other:?}")).into_response(),
+        Ok(other) => {
+            ActionResult::err(format!("unexpected daemon response: {other:?}")).into_response()
+        }
         Err(e) => (StatusCode::BAD_GATEWAY, ActionResult::err(e)).into_response(),
     }
 }
@@ -332,7 +348,9 @@ fn decode_invite(code: &str) -> Result<(iroh::EndpointId, Vec<u8>), String> {
         ENCODED_LEN => {
             let (payload, csum) = bytes.split_at(PAYLOAD_LEN);
             if csum != &blake3::hash(payload).as_bytes()[..CHECKSUM_LEN] {
-                return Err("invalid invite code: checksum mismatch (corrupted or mistyped)".to_string());
+                return Err(
+                    "invalid invite code: checksum mismatch (corrupted or mistyped)".to_string(),
+                );
             }
             payload
         }
@@ -348,8 +366,8 @@ fn decode_invite(code: &str) -> Result<(iroh::EndpointId, Vec<u8>), String> {
         .try_into()
         .map_err(|_| "invalid invite code: malformed network key".to_string())?;
     let secret = payload[32..].to_vec();
-    let network_pubkey =
-        iroh::EndpointId::from_bytes(&net).map_err(|e| format!("invalid network key in invite: {e}"))?;
+    let network_pubkey = iroh::EndpointId::from_bytes(&net)
+        .map_err(|e| format!("invalid network key in invite: {e}"))?;
     Ok((network_pubkey, secret))
 }
 
@@ -402,7 +420,9 @@ mod decode_invite_tests {
     fn rejects_a_checksum_mismatch() {
         let id = test_id(3);
         let secret = [1u8; SECRET_LEN];
-        let mut bytes = bs58::decode(encode_checksummed(&id, &secret)).into_vec().unwrap();
+        let mut bytes = bs58::decode(encode_checksummed(&id, &secret))
+            .into_vec()
+            .unwrap();
         let last = bytes.len() - 1;
         bytes[last] ^= 0xFF; // corrupt one checksum byte
         let code = bs58::encode(&bytes).into_string();
@@ -451,12 +471,19 @@ pub async fn join_network(Json(req): Json<JoinReq>) -> Response {
     })
     .await;
     match resp {
-        Ok(IpcMessage::Joined { network, my_ip, my_ipv6, warning }) => Json(serde_json::json!({
+        Ok(IpcMessage::Joined {
+            network,
+            my_ip,
+            my_ipv6,
+            warning,
+        }) => Json(serde_json::json!({
             "ok": true, "network": network, "my_ip": my_ip, "my_ipv6": my_ipv6, "warning": warning,
         }))
         .into_response(),
         Ok(IpcMessage::Error { message }) => ActionResult::err(message).into_response(),
-        Ok(other) => ActionResult::err(format!("unexpected daemon response: {other:?}")).into_response(),
+        Ok(other) => {
+            ActionResult::err(format!("unexpected daemon response: {other:?}")).into_response()
+        }
         Err(e) => (StatusCode::BAD_GATEWAY, ActionResult::err(e)).into_response(),
     }
 }
@@ -470,8 +497,15 @@ pub struct LeaveReq {
 /// `POST /api/networks/:name/leave`. `:name` is the local display name (the
 /// same value that keys `self.networks` daemon-side), NOT the network's
 /// short id -- matching `tetron leave`'s own CLI argument.
-pub async fn leave_network(Path(name): Path<String>, Json(req): Json<LeaveReq>) -> Json<ActionResult> {
-    run_action(IpcMessage::Leave { network: name, force: req.force }).await
+pub async fn leave_network(
+    Path(name): Path<String>,
+    Json(req): Json<LeaveReq>,
+) -> Json<ActionResult> {
+    run_action(IpcMessage::Leave {
+        network: name,
+        force: req.force,
+    })
+    .await
 }
 
 #[derive(Deserialize)]
@@ -486,12 +520,19 @@ pub struct ResumeStandbyReq {
 
 /// `POST /api/resume`.
 pub async fn activate(Json(req): Json<ResumeStandbyReq>) -> Json<ActionResult> {
-    run_action(IpcMessage::Resume { hostname: req.hostname, network: req.network }).await
+    run_action(IpcMessage::Resume {
+        hostname: req.hostname,
+        network: req.network,
+    })
+    .await
 }
 
 /// `POST /api/standby`.
 pub async fn deactivate(Json(req): Json<ResumeStandbyReq>) -> Json<ActionResult> {
-    run_action(IpcMessage::Standby { network: req.network }).await
+    run_action(IpcMessage::Standby {
+        network: req.network,
+    })
+    .await
 }
 
 #[derive(Deserialize)]
@@ -507,7 +548,10 @@ pub struct SyncReq {
 /// any-local-user authorization tier as `Status` (AUTHZ-001/SYNC-001 on the
 /// daemon side).
 pub async fn sync_now(Json(req): Json<SyncReq>) -> Json<ActionResult> {
-    run_action(IpcMessage::Sync { network: req.network }).await
+    run_action(IpcMessage::Sync {
+        network: req.network,
+    })
+    .await
 }
 
 // ---------------------------------------------------------------------
@@ -524,13 +568,24 @@ pub struct InviteCreateReq {
 
 /// `POST /api/networks/:name/invites`.
 pub async fn invite_create(Path(name): Path<String>, Json(req): Json<InviteCreateReq>) -> Response {
-    match call(IpcMessage::InviteCreate { network: name, expires: req.expires }).await {
-        Ok(IpcMessage::InviteCreated { invite_key, invite_id, expires_at }) => Json(serde_json::json!({
+    match call(IpcMessage::InviteCreate {
+        network: name,
+        expires: req.expires,
+    })
+    .await
+    {
+        Ok(IpcMessage::InviteCreated {
+            invite_key,
+            invite_id,
+            expires_at,
+        }) => Json(serde_json::json!({
             "ok": true, "invite_key": invite_key, "invite_id": invite_id, "expires_at": expires_at,
         }))
         .into_response(),
         Ok(IpcMessage::Error { message }) => ActionResult::err(message).into_response(),
-        Ok(other) => ActionResult::err(format!("unexpected daemon response: {other:?}")).into_response(),
+        Ok(other) => {
+            ActionResult::err(format!("unexpected daemon response: {other:?}")).into_response()
+        }
         Err(e) => (StatusCode::BAD_GATEWAY, ActionResult::err(e)).into_response(),
     }
 }
@@ -542,14 +597,20 @@ pub async fn invite_list(Path(name): Path<String>) -> Response {
             Json(serde_json::json!({"ok": true, "invites": invites})).into_response()
         }
         Ok(IpcMessage::Error { message }) => ActionResult::err(message).into_response(),
-        Ok(other) => ActionResult::err(format!("unexpected daemon response: {other:?}")).into_response(),
+        Ok(other) => {
+            ActionResult::err(format!("unexpected daemon response: {other:?}")).into_response()
+        }
         Err(e) => (StatusCode::BAD_GATEWAY, ActionResult::err(e)).into_response(),
     }
 }
 
 /// `DELETE /api/networks/:name/invites/:invite_id`.
 pub async fn invite_revoke(Path((name, invite_id)): Path<(String, String)>) -> Json<ActionResult> {
-    run_action(IpcMessage::InviteRevoke { network: name, invite_id }).await
+    run_action(IpcMessage::InviteRevoke {
+        network: name,
+        invite_id,
+    })
+    .await
 }
 
 // ---------------------------------------------------------------------
@@ -569,8 +630,15 @@ pub struct KickReq {
 /// destructive and needs a cryptographic identity, not a mutable,
 /// spoofable one. The frontend's confirmation dialog is the enforcement
 /// point for "are you sure"; this handler just passes the request through.
-pub async fn kick_member(Path(net_id): Path<String>, Json(req): Json<KickReq>) -> Json<ActionResult> {
-    run_action(IpcMessage::Kick { network_key: net_id, endpoint_id: req.peer }).await
+pub async fn kick_member(
+    Path(net_id): Path<String>,
+    Json(req): Json<KickReq>,
+) -> Json<ActionResult> {
+    run_action(IpcMessage::Kick {
+        network_key: net_id,
+        endpoint_id: req.peer,
+    })
+    .await
 }
 
 #[derive(Deserialize)]
@@ -582,8 +650,15 @@ pub struct AdminAddReq {
 /// (matching `tetron admin <name> add <peer>`) -- admin add is additive,
 /// not destructive, so (unlike kick/nuke) it resolves by the friendlier
 /// local name and accepts a hostname for `peer` too.
-pub async fn admin_add(Path(name): Path<String>, Json(req): Json<AdminAddReq>) -> Json<ActionResult> {
-    run_action(IpcMessage::AdminAdd { network: name, peer: req.peer }).await
+pub async fn admin_add(
+    Path(name): Path<String>,
+    Json(req): Json<AdminAddReq>,
+) -> Json<ActionResult> {
+    run_action(IpcMessage::AdminAdd {
+        network: name,
+        peer: req.peer,
+    })
+    .await
 }
 
 /// `GET /api/networks/:name/admin`.
@@ -593,7 +668,9 @@ pub async fn admin_list(Path(name): Path<String>) -> Response {
             Json(serde_json::json!({"ok": true, "admins": admins})).into_response()
         }
         Ok(IpcMessage::Error { message }) => ActionResult::err(message).into_response(),
-        Ok(other) => ActionResult::err(format!("unexpected daemon response: {other:?}")).into_response(),
+        Ok(other) => {
+            ActionResult::err(format!("unexpected daemon response: {other:?}")).into_response()
+        }
         Err(e) => (StatusCode::BAD_GATEWAY, ActionResult::err(e)).into_response(),
     }
 }
@@ -616,8 +693,17 @@ pub struct NukeReq {
 /// show "propose" vs "second an existing proposal" correctly instead of
 /// presenting one generic "destroy" button that hides what will actually
 /// happen.
-pub async fn nuke_network(Path(net_id): Path<String>, Json(req): Json<NukeReq>) -> Json<ActionResult> {
-    run_action(IpcMessage::Nuke { network_key: net_id, force: req.force, cancel: req.cancel, second: req.second }).await
+pub async fn nuke_network(
+    Path(net_id): Path<String>,
+    Json(req): Json<NukeReq>,
+) -> Json<ActionResult> {
+    run_action(IpcMessage::Nuke {
+        network_key: net_id,
+        force: req.force,
+        cancel: req.cancel,
+        second: req.second,
+    })
+    .await
 }
 
 // ---------------------------------------------------------------------
