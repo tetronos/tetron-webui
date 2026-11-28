@@ -3296,8 +3296,8 @@ dependencies = [
 
 [[package]]
 name = "tetron-proto"
-version = "0.15.7"
-source = "git+https://github.com/tetronos/tetron?tag=v0.15.7#b1e3db909b8e67a1a6909e07a77561dd324dd3ff"
+version = "0.15.8"
+source = "git+https://github.com/tetronos/tetron?tag=v0.15.8#3890846b4e82f8e4e4f24c93ece53a11217f59ed"
 dependencies = [
  "anyhow",
  "blake3",
@@ -3310,6 +3310,7 @@ dependencies = [
  "serde",
  "tokio",
  "tokio-util",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
