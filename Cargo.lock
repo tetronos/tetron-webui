@@ -3329,6 +3329,7 @@ dependencies = [
  "tempfile",
  "tetron-proto",
  "tokio",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

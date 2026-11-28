@@ -12,6 +12,7 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::proc::command;
 use serde::Serialize;
 use tokio::process::Command;
 
@@ -318,8 +319,23 @@ fn install_dir(spec: &AddonSpec) -> anyhow::Result<PathBuf> {
     }
 }
 
+#[cfg(not(windows))]
 fn binary_path(spec: &AddonSpec) -> anyhow::Result<PathBuf> {
     Ok(install_dir(spec)?.join(spec.binary_name))
+}
+
+/// Windows: a release-binary addon installs itself per user into
+/// `%LOCALAPPDATA%\Programs\<name>\<name>.exe` (its own `install`).
+#[cfg(windows)]
+fn binary_path(spec: &AddonSpec) -> anyhow::Result<PathBuf> {
+    if spec.script {
+        return Ok(install_dir(spec)?.join(spec.binary_name));
+    }
+    Ok(dirs::data_local_dir()
+        .ok_or_else(|| anyhow::anyhow!("could not determine %LOCALAPPDATA%"))?
+        .join("Programs")
+        .join(spec.binary_name)
+        .join(format!("{}.exe", spec.binary_name)))
 }
 
 /// Whether the addon's per-user service is currently registered+active --
@@ -334,7 +350,7 @@ async fn is_active(spec: &AddonSpec) -> bool {
     }
     args.push("is-active");
     args.push(spec.linux_unit);
-    Command::new("systemctl")
+    command("systemctl")
         .args(args)
         .output()
         .await
@@ -344,7 +360,7 @@ async fn is_active(spec: &AddonSpec) -> bool {
 
 #[cfg(target_os = "macos")]
 async fn is_active(spec: &AddonSpec) -> bool {
-    Command::new("launchctl")
+    command("launchctl")
         .args(["list", spec.macos_label])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -354,7 +370,16 @@ async fn is_active(spec: &AddonSpec) -> bool {
         .unwrap_or(false)
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+/// Windows: the addon's per-user sign-in autostart entry exists.
+#[cfg(windows)]
+async fn is_active(spec: &AddonSpec) -> bool {
+    let name = spec.binary_name.to_string();
+    tokio::task::spawn_blocking(move || crate::service::autostart_entry_exists(&name))
+        .await
+        .unwrap_or(false)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
 async fn is_active(_spec: &AddonSpec) -> bool {
     false
 }
@@ -400,6 +425,8 @@ async fn run_ok(cmd: &mut Command) -> anyhow::Result<()> {
 }
 
 async fn set_executable(path: &Path) -> anyhow::Result<()> {
+    #[cfg(not(unix))]
+    let _ = path;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -431,6 +458,15 @@ pub async fn install(id: &str) -> anyhow::Result<String> {
         spec.display_name,
         spec.github_repo
     );
+    if cfg!(windows) {
+        anyhow::bail!(
+            "On Windows, download {name}-x86_64-windows.exe from \
+             https://github.com/{repo}/releases/latest and run `{name}-x86_64-windows.exe install` \
+             in a terminal (no administrator rights needed).",
+            name = spec.binary_name,
+            repo = spec.github_repo
+        );
+    }
     if spec.script {
         return install_script(spec).await;
     }
@@ -463,7 +499,7 @@ async fn install_script(spec: &AddonSpec) -> anyhow::Result<String> {
         .tempdir()?;
     let tmp_path = tmpdir.path().join(spec.binary_name);
     run_ok(
-        Command::new("curl")
+        command("curl")
             .args(["-fsSL", "-o"])
             .arg(&tmp_path)
             .arg(&url),
@@ -546,7 +582,7 @@ async fn uninstall_service(spec: &AddonSpec) -> anyhow::Result<String> {
             spec.display_name
         );
     }
-    run_ok(Command::new(&dest).arg("uninstall")).await?;
+    run_ok(command(&dest).arg("uninstall")).await?;
     match tokio::fs::remove_file(&dest).await {
         Ok(()) => Ok(format!("{} uninstalled.", spec.display_name)),
         Err(e) => Ok(format!(

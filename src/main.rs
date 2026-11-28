@@ -11,6 +11,7 @@ mod api;
 mod board_discovery;
 mod ipc_client;
 mod messageboard;
+mod proc;
 mod service;
 mod sync_receiver;
 
@@ -34,10 +35,57 @@ pub(crate) const FULL_VERSION: &str =
 /// Resolve the web server's listen port. Reads `TETRON_WEBUI_PORT` from the
 /// environment; falls back to `DEFAULT_PORT` if unset or unparsable.
 pub(crate) fn resolve_port() -> u16 {
+    if let Some(port) = PORT_FLAG.get() {
+        return *port;
+    }
     std::env::var("TETRON_WEBUI_PORT")
         .ok()
         .and_then(|v| v.parse::<u16>().ok())
         .unwrap_or(DEFAULT_PORT)
+}
+
+/// `--port`, when given; wins over `TETRON_WEBUI_PORT`. Used by the Windows
+/// sign-in autostart entry, which can not set environment variables.
+static PORT_FLAG: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
+
+/// Windows: a console program, so a terminal waits for `install` and shows
+/// its output. Run in the background (the sign-in autostart entry gives it a
+/// console of its own; `install` starts it with none), it lets go of that
+/// console and logs to `%LOCALAPPDATA%\tetron-webui\tetron-webui.log`
+/// instead. Started from a terminal, it keeps logging there.
+#[cfg(windows)]
+fn windows_background_logging() {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::System::Console::{
+        FreeConsole, GetConsoleProcessList, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE, SetStdHandle,
+    };
+    let mut pids = [0u32; 2];
+    // SAFETY: `pids` is writable for its length.
+    let sharing = unsafe { GetConsoleProcessList(pids.as_mut_ptr(), pids.len() as u32) };
+    if sharing > 1 {
+        return;
+    }
+    if sharing == 1 {
+        // SAFETY: no arguments; detaches this process from its own console.
+        unsafe { FreeConsole() };
+    }
+    let Some(dir) = dirs::data_local_dir().map(|d| d.join("tetron-webui")) else {
+        return;
+    };
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let Ok(file) = std::fs::File::create(dir.join("tetron-webui.log")) else {
+        return;
+    };
+    let handle = file.as_raw_handle();
+    // SAFETY: `handle` is a valid file handle, kept open for the life of the
+    // process by leaking `file` below.
+    unsafe {
+        SetStdHandle(STD_OUTPUT_HANDLE, handle);
+        SetStdHandle(STD_ERROR_HANDLE, handle);
+    }
+    std::mem::forget(file);
 }
 
 #[derive(Parser)]
@@ -45,13 +93,17 @@ pub(crate) fn resolve_port() -> u16 {
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
+    /// Port to serve on (overrides `TETRON_WEBUI_PORT`; used by the Windows
+    /// autostart entry).
+    #[arg(long, hide = true)]
+    port: Option<u16>,
 }
 
 #[derive(Subcommand)]
 enum Command {
     /// Install and start the per-user service (systemd --user on Linux,
-    /// a launchd LaunchAgent on macOS) so tetron-webui runs at login
-    /// instead of needing a terminal kept open
+    /// a launchd LaunchAgent on macOS, a sign-in autostart entry on Windows)
+    /// so tetron-webui runs at login instead of needing a terminal kept open
     Install {
         /// Port to bind the web server on. Also sets `TETRON_WEBUI_PORT`
         /// in the service unit so downstream consumers (tetron-systray)
@@ -156,7 +208,7 @@ static BACKUP_CACHE: std::sync::Mutex<Option<(std::time::Instant, String)>> =
     std::sync::Mutex::new(None);
 
 async fn fetch_backup_script(url: &str) -> anyhow::Result<String> {
-    let out = tokio::process::Command::new("curl")
+    let out = crate::proc::command("curl")
         .args(["-fsSL"])
         .arg(url)
         .output()
@@ -222,6 +274,11 @@ async fn main() -> anyhow::Result<()> {
         }
         None => {}
     }
+    if let Some(port) = cli.port {
+        let _ = PORT_FLAG.set(port);
+    }
+    #[cfg(windows)]
+    windows_background_logging();
 
     let app = Router::new()
         // Frontend

@@ -46,3 +46,9 @@ blake3 = "1"
 # for the download+verify step. tetron core keeps this dev-only to preserve
 # its own minimal-deps posture, but that constraint doesn't apply to webui.
 tempfile = "3"
+
+# Windows-only: the server lets go of a console window of its own when it
+# runs in the background (sign-in autostart) and sends its log to a file.
+# Same windows-sys version tetron core uses.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console"] }

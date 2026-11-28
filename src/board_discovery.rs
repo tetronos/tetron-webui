@@ -134,7 +134,7 @@ async fn discover() -> BoardsByNetwork {
 /// default port surfaces them independently.
 async fn probe_one(ip: String, port: u16, host: String, network: String) -> Option<Board> {
     let url = format!("http://{ip}:{port}/health");
-    let out = tokio::process::Command::new("curl")
+    let out = crate::proc::command("curl")
         .args(["-fsS", "--max-time", &PROBE_TIMEOUT_SECS.to_string()])
         .arg(&url)
         .output()

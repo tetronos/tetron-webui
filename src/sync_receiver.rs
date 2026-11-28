@@ -12,7 +12,6 @@
 //! as a parameter for a single caller.
 
 use serde::{Deserialize, Serialize};
-use tokio::process::Command;
 
 const BINARY: &str = "/usr/local/bin/tetron-sync-receiver";
 
@@ -33,7 +32,7 @@ pub struct Module {
 async fn run_json<T: for<'de> Deserialize<'de>>(args: &[&str]) -> anyhow::Result<T> {
     let mut full_args = vec!["--json"];
     full_args.extend_from_slice(args);
-    let output = Command::new(BINARY)
+    let output = crate::proc::command(BINARY)
         .args(&full_args)
         .output()
         .await
@@ -41,14 +40,14 @@ async fn run_json<T: for<'de> Deserialize<'de>>(args: &[&str]) -> anyhow::Result
     anyhow::ensure!(
         output.status.success(),
         "{}",
-        String::from_utf8_lossy(&output.stderr).trim().to_string()
+        String::from_utf8_lossy(&output.stderr).trim()
     );
     serde_json::from_slice(&output.stdout)
         .map_err(|e| anyhow::anyhow!("failed to parse tetron-sync-receiver output: {e}"))
 }
 
 async fn run_ok(args: &[&str]) -> anyhow::Result<()> {
-    let output = Command::new(BINARY)
+    let output = crate::proc::command(BINARY)
         .args(args)
         .output()
         .await
@@ -56,7 +55,7 @@ async fn run_ok(args: &[&str]) -> anyhow::Result<()> {
     anyhow::ensure!(
         output.status.success(),
         "{}",
-        String::from_utf8_lossy(&output.stderr).trim().to_string()
+        String::from_utf8_lossy(&output.stderr).trim()
     );
     Ok(())
 }

@@ -11,7 +11,6 @@
 //! see `addons.rs`).
 
 use serde::{Deserialize, Serialize};
-use tokio::process::Command;
 
 const BINARY: &str = "/usr/local/bin/tetron-messageboard";
 
@@ -34,7 +33,7 @@ pub fn binary_present() -> bool {
 }
 
 async fn run_ok(args: &[&str]) -> anyhow::Result<()> {
-    let output = Command::new(BINARY)
+    let output = crate::proc::command(BINARY)
         .args(args)
         .output()
         .await
@@ -48,7 +47,7 @@ async fn run_ok(args: &[&str]) -> anyhow::Result<()> {
 }
 
 pub async fn list() -> anyhow::Result<Vec<Board>> {
-    let output = Command::new(BINARY)
+    let output = crate::proc::command(BINARY)
         .args(["list", "--json"])
         .output()
         .await

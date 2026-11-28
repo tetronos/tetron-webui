@@ -15,6 +15,9 @@ A browser dashboard and admin console for [tetron](https://github.com/tetronos/t
 | **macOS LaunchAgent** | `~/Library/LaunchAgents/com.tetron.webui.plist` |
 | **Linux logs** | systemd user journal (`journalctl --user -u tetron-webui`) |
 | **macOS logs** | `~/Library/Logs/tetron-webui.log` |
+| **Windows program** | `%LOCALAPPDATA%\Programs\tetron-webui\tetron-webui.exe` (copied there by `install`) |
+| **Windows autostart** | value `tetron-webui` under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` |
+| **Windows logs** | `%LOCALAPPDATA%\tetron-webui\tetron-webui.log` (rewritten at each start) |
 | **Config** | None — everything comes via IPC from the tetron daemon |
 
 ## Running it
@@ -49,6 +52,14 @@ tetron-webui install --port 7870     # optionally change the port (see below)
 Installs a `systemd --user` unit on Linux (`~/.config/systemd/user/tetron-webui.service`) or a launchd **LaunchAgent** on macOS (`~/Library/LaunchAgents/com.tetron.webui.plist`, distinct from a system-wide LaunchDaemon — this runs inside your login session, not root). `Restart=on-failure`/`KeepAlive` means it comes back automatically if it crashes. `install` points the service at whatever binary you ran it from — install it somewhere permanent first (as above) if you want the service to survive that binary being deleted. `tetron-webui uninstall` stops and removes it. Verified end to end on real hardware on both platforms: install, crash-recovery (`kill -9` the process, confirmed the service manager restarts it within seconds), and uninstall all leave the machine clean.
 
 Then open `http://127.0.0.1:7870` (or whatever port you chose). Requires a running `tetron` daemon (`sudo tetron install`) reachable at its usual Unix socket. Read-only status works for any local user; mutating actions (create/join/leave/kick/nuke/etc.) require the browsing user to be tetron's configured operator (`sudo tetron set-operator <user>`) or root — same authorization model the CLI uses.
+
+**Windows 10 and 11 (x86_64):** download `tetron-webui-x86_64-windows.exe` from the [releases page](https://github.com/tetronos/tetron-webui/releases/latest), then from an ordinary (not elevated) terminal in the download folder:
+
+```powershell
+.\tetron-webui-x86_64-windows.exe install
+```
+
+`install` copies the program to `%LOCALAPPDATA%\Programs\tetron-webui` (the download can then be deleted), adds a sign-in autostart entry for your user only, starts it in the background and waits until `http://127.0.0.1:7870` answers; no administrator rights are needed. Unlike the Linux and macOS services it is not restarted if it crashes; signing in again (or running `install` again) starts it. Reading status works for every user; changes need your account to be tetron's operator (`tetron install` makes the installing user the operator, `tetron set-operator <account>` from an elevated terminal changes it). The Add-ons panel shows whether tetron-systray is installed and can uninstall it; installing an add-on is done from its own download. `tetron-webui uninstall` removes the autostart entry, stops the server and deletes the copied program.
 
 ### Port configuration
 
