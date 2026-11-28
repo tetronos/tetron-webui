@@ -40,13 +40,41 @@ document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
 // right now, but worth not pretending can't fail).
 // -----------------------------------------------------------------------
 
+// Sign-in token (src/auth.rs). `tetron-webui open` and the tray open this
+// page as /#token=<hex>; the part after # never reaches a server. It moves
+// into this origin's storage (scoped to this exact host and port) and the
+// address bar is cleaned, then every API call sends it as a header.
+const TOKEN_KEY = "tetronWebuiToken";
+(function takeTokenFromAddress() {
+  const m = location.hash.match(/^#token=([0-9a-f]{64})$/);
+  if (m) {
+    localStorage.setItem(TOKEN_KEY, m[1]);
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+})();
+
+const NOT_SIGNED_IN =
+  "not signed in: open the dashboard from the tetron tray icon, or run `tetron-webui open`";
+
+class NotSignedIn extends Error {}
+
+async function api(url, options) {
+  const opts = options || {};
+  opts.headers = Object.assign({}, opts.headers, {
+    "X-Tetron-Token": localStorage.getItem(TOKEN_KEY) || "",
+  });
+  const res = await fetch(url, opts);
+  if (res.status === 401) throw new NotSignedIn(NOT_SIGNED_IN);
+  return res;
+}
+
 async function getJson(url) {
-  const res = await fetch(url);
+  const res = await api(url);
   return res.json();
 }
 
 async function postJson(url, body) {
-  const res = await fetch(url, {
+  const res = await api(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body || {}),
@@ -55,7 +83,7 @@ async function postJson(url, body) {
 }
 
 async function deleteJson(url) {
-  const res = await fetch(url, { method: "DELETE" });
+  const res = await api(url, { method: "DELETE" });
   return res.json();
 }
 
@@ -257,7 +285,7 @@ function renderBoardLinks(networkName) {
 
 async function pollBoards() {
   try {
-    const r = await fetch("/api/boards", { cache: "no-store" });
+    const r = await api("/api/boards", { cache: "no-store" });
     if (!r.ok) return;
     boardsByNetwork = await r.json();
     // Reflect a fresh discovery immediately rather than waiting for the next
@@ -275,6 +303,13 @@ function setHeader(status) {
   const traffic = document.getElementById("header-traffic");
 
   dot.className = "dot";
+  if (status.unauthorized) {
+    dot.classList.add("dot-unknown");
+    text.textContent = "not signed in";
+    info.textContent = status.message || "";
+    traffic.textContent = "";
+    return;
+  }
   if (!status.reachable) {
     dot.classList.add("dot-unknown");
     text.textContent = "daemon unreachable";
@@ -590,7 +625,11 @@ async function poll() {
     const status = await getJson("/api/status");
     render(status);
   } catch (e) {
-    render({ reachable: false, message: String(e) });
+    if (e instanceof NotSignedIn) {
+      render({ reachable: false, unauthorized: true, message: e.message });
+    } else {
+      render({ reachable: false, message: String(e) });
+    }
   }
 }
 

@@ -8,6 +8,7 @@
 
 mod addons;
 mod api;
+mod auth;
 mod board_discovery;
 mod ipc_client;
 mod messageboard;
@@ -113,6 +114,13 @@ enum Command {
     },
     /// Stop and remove the per-user service
     Uninstall,
+    /// Open the dashboard in the browser, signed in (the address carries
+    /// this user's token after `#`)
+    Open {
+        /// Print the address instead of opening a browser
+        #[arg(long)]
+        print: bool,
+    },
     /// Print the tetron-webui version
     #[command(visible_alias = "ver")]
     Version,
@@ -268,6 +276,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Some(Command::Install { port }) => return service::install(port),
         Some(Command::Uninstall) => return service::uninstall(),
+        Some(Command::Open { print }) => return service::open_dashboard(print),
         Some(Command::Version) => {
             println!("tetron-webui {FULL_VERSION}");
             return Ok(());
@@ -365,10 +374,16 @@ async fn main() -> anyhow::Result<()> {
             post(api::messageboard_restart_all),
         );
 
+    // The token exists before the port answers, so an installer that waits
+    // for the port can open the signed-in address right away.
+    auth::init()?;
+    let app = app.layer(axum::middleware::from_fn(auth::guard));
     let port = resolve_port();
     let addr = format!("127.0.0.1:{port}");
     let listener = tokio::net::TcpListener::bind(&addr).await?;
-    eprintln!("tetron-webui listening on http://{addr}");
+    eprintln!(
+        "tetron-webui listening on http://{addr} (open it signed in with: tetron-webui open)"
+    );
     axum::serve(listener, app).await?;
     Ok(())
 }

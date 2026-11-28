@@ -61,6 +61,12 @@ Then open `http://127.0.0.1:7870` (or whatever port you chose). Requires a runni
 
 `install` copies the program to `%LOCALAPPDATA%\Programs\tetron-webui` (the download can then be deleted), adds a sign-in autostart entry for your user only, starts it in the background and waits until `http://127.0.0.1:7870` answers; no administrator rights are needed. Unlike the Linux and macOS services it is not restarted if it crashes; signing in again (or running `install` again) starts it. Reading status works for every user; changes need your account to be tetron's operator (`tetron install` makes the installing user the operator, `tetron set-operator <account>` from an elevated terminal changes it). The Add-ons panel shows whether tetron-systray is installed and can uninstall it; installing an add-on is done from its own download. `tetron-webui uninstall` removes the autostart entry, stops the server and deletes the copied program.
 
+### Signing in
+
+The dashboard only answers the user who runs it. Open it with `tetron-webui open` (or the tray's "Open webui"): that opens `http://127.0.0.1:7870/#token=...`, where the token comes from a file only you can read (`~/.config/tetron-webui/token` on Linux, `~/Library/Application Support/tetron-webui/token` on macOS, `%LOCALAPPDATA%\tetron-webui\token` on Windows). The part after `#` never leaves the browser: the page keeps it in the browser's storage for that address and sends it with every request, so later visits and bookmarks of `http://127.0.0.1:7870` stay signed in. A browser without it sees "not signed in". `tetron-webui open --print` prints the address instead of opening a browser. To revoke every signed-in browser, delete the token file and restart tetron-webui; it makes a new one.
+
+Requests must also name the server itself (`127.0.0.1:<port>` or `localhost:<port>`) as their Host, and changes coming from another web origin are refused, so a web page can not reach the dashboard through your browser (DNS rebinding or a cross-site post).
+
 ### Port configuration
 
 The web server binds `127.0.0.1:7870` by default. Override it with the

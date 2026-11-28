@@ -46,6 +46,8 @@ blake3 = "1"
 # for the download+verify step. tetron core keeps this dev-only to preserve
 # its own minimal-deps posture, but that constraint doesn't apply to webui.
 tempfile = "3"
+# Dashboard sign-in token (src/auth.rs): 32 random bytes from the OS.
+getrandom = "0.2"
 
 # Windows-only: the server lets go of a console window of its own when it
 # runs in the background (sign-in autostart) and sends its log to a file; a

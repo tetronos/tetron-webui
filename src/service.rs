@@ -126,7 +126,9 @@ fn unix_install(exe: &str, port: u16) -> Result<()> {
 
     eprintln!("waiting for tetron-webui to come up…");
     if wait_for_http(port, Duration::from_secs(10)) {
-        println!("tetron-webui service installed and running on http://127.0.0.1:{port}");
+        println!(
+            "tetron-webui service installed and running on http://127.0.0.1:{port}; open it signed in with: tetron-webui open"
+        );
         Ok(())
     } else {
         anyhow::bail!(
@@ -199,13 +201,46 @@ pub fn double_click_install() -> bool {
     println!("tetron-webui: installing for your user (no administrator rights needed)...\n");
     let port = crate::resolve_port();
     match install(port) {
-        Ok(()) => open_url(&format!("http://127.0.0.1:{port}")),
+        Ok(()) => match crate::auth::login_url(port) {
+            Some(url) => open_url(&url),
+            None => println!("start the dashboard with: tetron-webui open"),
+        },
         Err(e) => println!("\ninstall failed: {e:#}"),
     }
     println!("\nPress Enter to close this window.");
     let mut line = String::new();
     let _ = std::io::stdin().read_line(&mut line);
     true
+}
+
+/// `tetron-webui open`: open the signed-in dashboard address, or print it.
+pub fn open_dashboard(print: bool) -> Result<()> {
+    let port = crate::resolve_port();
+    let url = crate::auth::login_url(port).context(
+        "no sign-in token yet: start tetron-webui once (tetron-webui install) and try again",
+    )?;
+    if print {
+        println!("{url}");
+    } else {
+        open_url(&url);
+        println!("opened the dashboard (http://127.0.0.1:{port}) in your browser");
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn open_url(url: &str) {
+    let _ = Command::new("xdg-open").arg(url).spawn();
+}
+
+#[cfg(target_os = "macos")]
+fn open_url(url: &str) {
+    let _ = Command::new("open").arg(url).spawn();
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
+fn open_url(url: &str) {
+    println!("open {url} in your browser");
 }
 
 /// Windows: open `url` in the default browser.
@@ -334,7 +369,7 @@ mod windows {
         eprintln!("waiting for tetron-webui to come up…");
         if wait_for_http(port, Duration::from_secs(10)) {
             println!(
-                "tetron-webui installed in {} and running on http://127.0.0.1:{port}; it starts when you sign in.",
+                "tetron-webui installed in {} and running on http://127.0.0.1:{port}; it starts when you sign in. Open it with: tetron-webui open",
                 dir.display()
             );
             Ok(())
