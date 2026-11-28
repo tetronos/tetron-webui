@@ -48,7 +48,8 @@ blake3 = "1"
 tempfile = "3"
 
 # Windows-only: the server lets go of a console window of its own when it
-# runs in the background (sign-in autostart) and sends its log to a file.
+# runs in the background (sign-in autostart) and sends its log to a file; a
+# double-click install opens the dashboard (ShellExecuteW).
 # Same windows-sys version tetron core uses.
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }

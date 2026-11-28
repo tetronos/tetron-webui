@@ -141,5 +141,18 @@
   <script src="/vendor/qrcode.js"></script>
   <script src="/vendor/idiomorph.js"></script>
   <script src="/app.js"></script>
+  <script>
+    // Written in old JavaScript on purpose: a browser too old to parse
+    // app.js (the original EdgeHTML Edge of Windows 10) still runs this, and
+    // says so instead of leaving "connecting..." on screen forever.
+    setTimeout(function () {
+      if (window.tetronBooted) return;
+      var text = document.getElementById("status-text");
+      if (text) {
+        text.textContent = "This browser can not run the dashboard. Open " +
+          location.href + " in a current browser (Edge, Chrome or Firefox).";
+      }
+    }, 4000);
+  </script>
 </body>
 </html>

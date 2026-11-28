@@ -1561,6 +1561,8 @@ document.getElementById("addons-list").addEventListener("click", async (e) => {
 // Boot
 // -----------------------------------------------------------------------
 
+// Read by the old-browser check in index.html: this script parsed and ran.
+window.tetronBooted = true;
 poll();
 pollAddons();
 pollBoards();

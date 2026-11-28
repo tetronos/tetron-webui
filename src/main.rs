@@ -278,7 +278,12 @@ async fn main() -> anyhow::Result<()> {
         let _ = PORT_FLAG.set(port);
     }
     #[cfg(windows)]
-    windows_background_logging();
+    {
+        if service::double_click_install() {
+            return Ok(());
+        }
+        windows_background_logging();
+    }
 
     let app = Router::new()
         // Frontend

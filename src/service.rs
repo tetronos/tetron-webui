@@ -174,6 +174,65 @@ pub fn uninstall() -> Result<()> {
     }
 }
 
+/// Windows: started by double-click (a console of its own) from anywhere but
+/// its installed location, as when a downloaded file is opened from Explorer:
+/// install instead of serving from the download, open the dashboard, then
+/// wait for Enter so the window does not vanish. Returns `false` when this is
+/// not such a start (a terminal, or the sign-in autostart of the installed
+/// copy).
+#[cfg(windows)]
+pub fn double_click_install() -> bool {
+    use windows_sys::Win32::System::Console::GetConsoleProcessList;
+    let mut pids = [0u32; 2];
+    // SAFETY: `pids` is writable for its length.
+    let sharing = unsafe { GetConsoleProcessList(pids.as_mut_ptr(), pids.len() as u32) };
+    if sharing != 1 {
+        return false;
+    }
+    let installed = std::env::current_exe()
+        .ok()
+        .zip(windows::install_dir().ok())
+        .is_some_and(|(exe, dir)| exe.starts_with(dir));
+    if installed {
+        return false;
+    }
+    println!("tetron-webui: installing for your user (no administrator rights needed)...\n");
+    let port = crate::resolve_port();
+    match install(port) {
+        Ok(()) => open_url(&format!("http://127.0.0.1:{port}")),
+        Err(e) => println!("\ninstall failed: {e:#}"),
+    }
+    println!("\nPress Enter to close this window.");
+    let mut line = String::new();
+    let _ = std::io::stdin().read_line(&mut line);
+    true
+}
+
+/// Windows: open `url` in the default browser.
+#[cfg(windows)]
+fn open_url(url: &str) {
+    use windows_sys::Win32::UI::Shell::ShellExecuteW;
+    use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    let wide = |s: &str| {
+        s.encode_utf16()
+            .chain(std::iter::once(0))
+            .collect::<Vec<u16>>()
+    };
+    let (verb, target) = (wide("open"), wide(url));
+    // SAFETY: both strings are NUL-terminated and outlive the call; the other
+    // pointers may be null.
+    unsafe {
+        ShellExecuteW(
+            std::ptr::null_mut(),
+            verb.as_ptr(),
+            target.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            SW_SHOWNORMAL,
+        );
+    }
+}
+
 /// Windows: a per-user autostart entry, the counterpart of the systemd user
 /// unit and the LaunchAgent. The program is copied to
 /// `%LOCALAPPDATA%\Programs\tetron-webui` (so the downloaded file can be
@@ -195,20 +254,30 @@ mod windows {
     const RUN_VALUE: &str = "tetron-webui";
     const EXE_NAME: &str = "tetron-webui.exe";
 
-    fn install_dir() -> Result<PathBuf> {
+    pub(crate) fn install_dir() -> Result<PathBuf> {
         Ok(dirs::data_local_dir()
             .context("could not determine %LOCALAPPDATA%")?
             .join("Programs")
             .join("tetron-webui"))
     }
 
-    /// Ends every other running tetron-webui of this user, never this process.
+    /// Ends every other running tetron-webui of this user, never this
+    /// process. Matched by image name prefix, so a copy started from the
+    /// download (`tetron-webui-x86_64-windows.exe`) is stopped too and frees
+    /// the port for the installed one.
     fn stop_other_instances() {
         let pid = std::process::id().to_string();
         run_cmd_quiet(
             "taskkill",
-            &["/F", "/IM", EXE_NAME, "/FI", &format!("PID ne {pid}")],
+            &[
+                "/F",
+                "/FI",
+                "IMAGENAME eq tetron-webui*",
+                "/FI",
+                &format!("PID ne {pid}"),
+            ],
         );
+        std::thread::sleep(Duration::from_millis(500));
     }
 
     /// The autostart command line: the quoted program and its port.
